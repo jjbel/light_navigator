@@ -5,9 +5,6 @@
 #ifndef LIVEOV7670_SETUP_H
 #define LIVEOV7670_SETUP_H
 
-
-
-
 /*
  *  EXAMPLE = 1
  *  Use LiveOV7670Library class that reads line into buffer and
@@ -30,11 +27,7 @@
  */
 #define EXAMPLE 3
 
-
-
 void initializeScreenAndCamera();
 void processFrame();
 
-
-
-#endif //LIVEOV7670_SETUP_H
+#endif // LIVEOV7670_SETUP_H
