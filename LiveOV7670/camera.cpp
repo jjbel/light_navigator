@@ -3,30 +3,11 @@
 #include "CameraOV7670.h"
 
 
-
 const uint8_t VERSION            = 0x10;
 const uint8_t COMMAND_NEW_FRAME  = 0x01 | VERSION;
 const uint8_t COMMAND_DEBUG_DATA = 0x03 | VERSION;
 
-const uint16_t UART_PIXEL_FORMAT_RGB565    = 0x01;
 const uint16_t UART_PIXEL_FORMAT_GRAYSCALE = 0x02;
-
-// Pixel byte parity check:
-// Pixel Byte H: odd number of bits under H_BYTE_PARITY_CHECK and H_BYTE_PARITY_INVERT
-// Pixel Byte L: even number of bits under L_BYTE_PARITY_CHECK and L_BYTE_PARITY_INVERT
-//                                   H:RRRRRGGG
-const uint8_t H_BYTE_PARITY_CHECK  = 0b00100000;
-const uint8_t H_BYTE_PARITY_INVERT = 0b00001000;
-//                                   L:GGGBBBBB
-const uint8_t L_BYTE_PARITY_CHECK  = 0b00001000;
-const uint8_t L_BYTE_PARITY_INVERT = 0b00100000;
-// Since the parity for L byte can be zero we must ensure that the total byte value is above zero.
-// Increasing the lowest bit of blue color is OK for that.
-const uint8_t L_BYTE_PREVENT_ZERO = 0b00000001;
-
-const uint16_t COLOR_GREEN = 0x07E0;
-const uint16_t COLOR_RED   = 0xF800;
-
 
 void processGrayscaleFrameBuffered();
 void processGrayscaleFrameDirect();
