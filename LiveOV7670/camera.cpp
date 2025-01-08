@@ -87,8 +87,7 @@ void processGrayscaleFrameBuffered()
         lineBufferSendByte = &lineBuffer[0];
         camera.ignoreHorizontalPaddingLeft();
 
-        uint16_t x = 0;
-        while (x < lineBufferLength)
+        for (uint16_t x = 0; x < lineBufferLength; x += 2)
         {
             camera.waitForPixelClockRisingEdge(); // YUV422 grayscale byte
             camera.readPixelByte(lineBuffer[x]);
@@ -96,15 +95,13 @@ void processGrayscaleFrameBuffered()
 
             camera.waitForPixelClockRisingEdge(); // YUV422 color byte. Ignore.
             if (isSendWhileBuffering) { processNextGrayscalePixelByteInBuffer(); }
-            x++;
 
             camera.waitForPixelClockRisingEdge(); // YUV422 grayscale byte
-            camera.readPixelByte(lineBuffer[x]);
-            lineBuffer[x] = formatPixelByteGrayscaleSecond(lineBuffer[x]);
+            camera.readPixelByte(lineBuffer[x + 1]);
+            lineBuffer[x + 1] = formatPixelByteGrayscaleSecond(lineBuffer[x + 1]);
 
             camera.waitForPixelClockRisingEdge(); // YUV422 color byte. Ignore.
             if (isSendWhileBuffering) { processNextGrayscalePixelByteInBuffer(); }
-            x++;
         }
         camera.ignoreHorizontalPaddingRight();
 
