@@ -1,6 +1,6 @@
 #include "Arduino.h"
 #include "CameraOV7670.h"
-#include "setup.h"
+#include "camera.h"
 
 
 const uint8_t VERSION            = 0x10;

@@ -1,5 +1,4 @@
-// change setup.h to switch between buffered and pixel-by-pixel processing
-#include "setup.h"
+#include "camera.h"
 
 void setup()
 {
