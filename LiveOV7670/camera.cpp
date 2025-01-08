@@ -116,7 +116,7 @@ void processGrayscaleFrameBuffered()
         {
             processNextGrayscalePixelByteInBuffer();
         }
-    };
+    }
 }
 
 void processNextGrayscalePixelByteInBuffer()
@@ -128,43 +128,6 @@ void processNextGrayscalePixelByteInBuffer()
     }
 }
 
-
-void processGrayscaleFrameDirect()
-{
-    camera.waitForVsync();
-    commandDebugPrint("Vsync");
-
-    camera.ignoreVerticalPadding();
-
-    for (uint16_t y = 0; y < lineCount; y++)
-    {
-        camera.ignoreHorizontalPaddingLeft();
-
-        uint16_t x = 0;
-        while (x < lineLength)
-        {
-            camera.waitForPixelClockRisingEdge(); // YUV422 grayscale byte
-            camera.readPixelByte(lineBuffer[0]);
-            lineBuffer[0] = formatPixelByteGrayscaleFirst(lineBuffer[0]);
-
-            camera.waitForPixelClockRisingEdge(); // YUV422 color byte. Ignore.
-            waitForPreviousUartByteToBeSent();
-            UDR0 = lineBuffer[0];
-            x++;
-
-            camera.waitForPixelClockRisingEdge(); // YUV422 grayscale byte
-            camera.readPixelByte(lineBuffer[0]);
-            lineBuffer[0] = formatPixelByteGrayscaleSecond(lineBuffer[0]);
-
-            camera.waitForPixelClockRisingEdge(); // YUV422 color byte. Ignore.
-            waitForPreviousUartByteToBeSent();
-            UDR0 = lineBuffer[0];
-            x++;
-        }
-
-        camera.ignoreHorizontalPaddingRight();
-    }
-}
 
 uint8_t formatPixelByteGrayscaleFirst(uint8_t pixelByte)
 {
