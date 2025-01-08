@@ -31,12 +31,10 @@ void processGrayscaleFrameBuffered();
 void processGrayscaleFrameDirect();
 void processRgbFrameBuffered();
 void processRgbFrameDirect();
-typedef void (*ProcessFrameData)(void);
 
 const uint16_t lineLength               = 160;
 const uint16_t lineCount                = 120;
 const uint32_t baud                     = 115200;
-const ProcessFrameData processFrameData = processGrayscaleFrameBuffered;
 const uint16_t lineBufferLength         = lineLength;
 const bool isSendWhileBuffering         = true;
 const uint8_t uartPixelFormat           = UART_PIXEL_FORMAT_GRAYSCALE;
@@ -79,16 +77,8 @@ void initializeScreenAndCamera()
     // CLKPR = 1; // set prescaler to 1. WAVGAT MCU has it 3 by default.
 
     Serial.begin(baud);
-    if (camera.init())
-    {
-        sendBlankFrame(COLOR_GREEN);
-        delay(1000);
-    }
-    else
-    {
-        sendBlankFrame(COLOR_RED);
-        delay(3000);
-    }
+    if (camera.init()) { commandDebugPrint("Camera initialized."); }
+    else { commandDebugPrint("Camera initialization failed."); }
 }
 
 
@@ -117,7 +107,7 @@ void processFrame()
     processedByteCountDuringCameraRead = 0;
     commandStartNewFrame(uartPixelFormat);
     noInterrupts();
-    processFrameData();
+    processGrayscaleFrameBuffered();
     interrupts();
     frameCounter++;
     commandDebugPrint("Frame " +
