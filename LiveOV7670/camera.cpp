@@ -1,6 +1,7 @@
+#include "camera.h"
 #include "Arduino.h"
 #include "CameraOV7670.h"
-#include "camera.h"
+
 
 
 const uint8_t VERSION            = 0x10;
@@ -29,16 +30,15 @@ const uint16_t COLOR_RED   = 0xF800;
 
 void processGrayscaleFrameBuffered();
 void processGrayscaleFrameDirect();
-void processRgbFrameBuffered();
-void processRgbFrameDirect();
 
-const uint16_t lineLength               = 160;
-const uint16_t lineCount                = 120;
-const uint32_t baud                     = 115200;
-const uint16_t lineBufferLength         = lineLength;
-const bool isSendWhileBuffering         = true;
-const uint8_t uartPixelFormat           = UART_PIXEL_FORMAT_GRAYSCALE;
+const uint16_t lineLength       = 160;
+const uint16_t lineCount        = 120;
+const uint32_t baud             = 115200;
+const uint16_t lineBufferLength = lineLength;
+const bool isSendWhileBuffering = true;
+const uint8_t uartPixelFormat   = UART_PIXEL_FORMAT_GRAYSCALE;
 CameraOV7670 camera(CameraOV7670::RESOLUTION_QQVGA_160x120, CameraOV7670::PIXEL_YUV422, 17);
+// pixel is 2 bytes but buffer is only 160 wide?
 
 uint8_t lineBuffer[lineBufferLength]; // Two bytes per pixel
 uint8_t* lineBufferSendByte;
@@ -54,14 +54,8 @@ void commandDebugPrint(const String debugText);
 uint8_t sendNextCommandByte(uint8_t checksum, uint8_t commandByte);
 
 
-void sendBlankFrame(uint16_t color);
 // could add __attribute__((always_inline)) to these
 inline void processNextGrayscalePixelByteInBuffer();
-inline void processNextRgbPixelByteInBuffer();
-inline void tryToSendNextRgbPixelByteInBuffer();
-inline void formatNextRgbPixelByteInBuffer();
-inline uint8_t formatRgbPixelByteH(uint8_t byte);
-inline uint8_t formatRgbPixelByteL(uint8_t byte);
 inline uint8_t formatPixelByteGrayscaleFirst(uint8_t byte);
 inline uint8_t formatPixelByteGrayscaleSecond(uint8_t byte);
 inline void waitForPreviousUartByteToBeSent();
@@ -81,26 +75,6 @@ void initializeScreenAndCamera()
     else { commandDebugPrint("Camera initialization failed."); }
 }
 
-
-void sendBlankFrame(uint16_t color)
-{
-    uint8_t colorH = (color >> 8) & 0xFF;
-    uint8_t colorL = color & 0xFF;
-
-    commandStartNewFrame(UART_PIXEL_FORMAT_RGB565);
-    for (uint16_t j = 0; j < lineCount; j++)
-    {
-        for (uint16_t i = 0; i < lineLength; i++)
-        {
-            waitForPreviousUartByteToBeSent();
-            UDR0 = formatRgbPixelByteH(colorH);
-            waitForPreviousUartByteToBeSent();
-            UDR0 = formatRgbPixelByteL(colorL);
-        }
-    }
-}
-
-
 // this is called in Arduino loop() function
 void processFrame()
 {
@@ -115,6 +89,10 @@ void processFrame()
     // commandDebugPrint("Frame " + String(frameCounter, 16)); // send number in hexadecimal
 }
 
+// camera
+// commandDebugPrint
+// lineBufferSenByte, lineBuffer, lineBufferLength,
+// isSendWhileBuffering, lineLength, processNextGrayscalePixelByteInBuffer
 
 void processGrayscaleFrameBuffered()
 {
@@ -223,130 +201,6 @@ uint8_t formatPixelByteGrayscaleSecond(uint8_t pixelByte)
 {
     // For the second byte in the parity chek byte pair the last bit is always 1.
     return pixelByte | 0b00000001;
-}
-
-
-void processRgbFrameBuffered()
-{
-    camera.waitForVsync();
-    commandDebugPrint("Vsync");
-
-    camera.ignoreVerticalPadding();
-
-    for (uint16_t y = 0; y < lineCount; y++)
-    {
-        lineBufferSendByte        = &lineBuffer[0];
-        isLineBufferSendHighByte  = true; // Line starts with High byte
-        isLineBufferByteFormatted = false;
-
-        camera.ignoreHorizontalPaddingLeft();
-
-        for (uint16_t x = 0; x < lineBufferLength; x++)
-        {
-            camera.waitForPixelClockRisingEdge();
-            camera.readPixelByte(lineBuffer[x]);
-            if (isSendWhileBuffering) { processNextRgbPixelByteInBuffer(); }
-        };
-
-        camera.ignoreHorizontalPaddingRight();
-
-        // Debug info to get some feedback how mutch data was processed during line read.
-        processedByteCountDuringCameraRead = lineBufferSendByte - (&lineBuffer[0]);
-
-        // send rest of the line
-        while (lineBufferSendByte < &lineBuffer[lineLength * 2])
-        {
-            processNextRgbPixelByteInBuffer();
-        }
-    }
-}
-
-void processNextRgbPixelByteInBuffer()
-{
-    // Format pixel bytes and send out in different cycles.
-    // There is not enough time to do both on faster frame rates.
-    if (isLineBufferByteFormatted) { tryToSendNextRgbPixelByteInBuffer(); }
-    else { formatNextRgbPixelByteInBuffer(); }
-}
-
-void tryToSendNextRgbPixelByteInBuffer()
-{
-    if (isUartReady())
-    {
-        UDR0 = *lineBufferSendByte;
-        lineBufferSendByte++;
-        isLineBufferByteFormatted = false;
-    }
-}
-
-void formatNextRgbPixelByteInBuffer()
-{
-    if (isLineBufferSendHighByte)
-    {
-        *lineBufferSendByte = formatRgbPixelByteH(*lineBufferSendByte);
-    }
-    else { *lineBufferSendByte = formatRgbPixelByteL(*lineBufferSendByte); }
-    isLineBufferByteFormatted = true;
-    isLineBufferSendHighByte  = !isLineBufferSendHighByte;
-}
-
-
-void processRgbFrameDirect()
-{
-    camera.waitForVsync();
-    commandDebugPrint("Vsync");
-
-    camera.ignoreVerticalPadding();
-
-    for (uint16_t y = 0; y < lineCount; y++)
-    {
-        camera.ignoreHorizontalPaddingLeft();
-
-        for (uint16_t x = 0; x < lineLength; x++)
-        {
-
-            camera.waitForPixelClockRisingEdge();
-            camera.readPixelByte(lineBuffer[0]);
-            lineBuffer[0] = formatRgbPixelByteH(lineBuffer[0]);
-            waitForPreviousUartByteToBeSent();
-            UDR0 = lineBuffer[0];
-
-            camera.waitForPixelClockRisingEdge();
-            camera.readPixelByte(lineBuffer[0]);
-            lineBuffer[0] = formatRgbPixelByteL(lineBuffer[0]);
-            waitForPreviousUartByteToBeSent();
-            UDR0 = lineBuffer[0];
-        }
-
-        camera.ignoreHorizontalPaddingRight();
-    };
-}
-
-
-// RRRRRGGG
-uint8_t formatRgbPixelByteH(uint8_t pixelByteH)
-{
-    // Make sure that
-    // A: pixel color always slightly above 0 since zero is end of line marker
-    // B: odd number of bits for H byte under H_BYTE_PARITY_CHECK and H_BYTE_PARITY_INVERT to enable
-    // error correction
-    if (pixelByteH & H_BYTE_PARITY_CHECK) { return pixelByteH & (~H_BYTE_PARITY_INVERT); }
-    else { return pixelByteH | H_BYTE_PARITY_INVERT; }
-}
-
-
-// GGGBBBBB
-uint8_t formatRgbPixelByteL(uint8_t pixelByteL)
-{
-    // Make sure that
-    // A: pixel color always slightly above 0 since zero is end of line marker
-    // B: even number of bits for L byte under L_BYTE_PARITY_CHECK and L_BYTE_PARITY_INVERT to
-    // enable error correction
-    if (pixelByteL & L_BYTE_PARITY_CHECK)
-    {
-        return pixelByteL | L_BYTE_PARITY_INVERT | L_BYTE_PREVENT_ZERO;
-    }
-    else { return (pixelByteL & (~L_BYTE_PARITY_INVERT)) | L_BYTE_PREVENT_ZERO; }
 }
 
 
