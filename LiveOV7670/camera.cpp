@@ -17,9 +17,10 @@ const uint32_t baud             = 115200; // TODO could increase?? see his code 
 const uint16_t lineBufferLength = lineLength;
 const uint8_t uartPixelFormat   = UART_PIXEL_FORMAT_GRAYSCALE;
 CameraOV7670 camera(CameraOV7670::RESOLUTION_QQVGA_160x120, CameraOV7670::PIXEL_YUV422, 17);
-// pixel is 2 bytes but buffer is only 160 wide?
 
-uint8_t lineBuffer[lineBufferLength]; // Two bytes per pixel
+uint8_t lineBuffer[lineBufferLength];
+
+// TODO why doesn't changing this to an offset instead of a pointer work
 uint8_t* lineBufferSendByte;
 bool isLineBufferSendHighByte;
 bool isLineBufferByteFormatted;
@@ -63,9 +64,7 @@ void processFrame()
     processGrayscaleFrameBuffered();
     interrupts();
     frameCounter++;
-    commandDebugPrint("Frame " +
-                      String(frameCounter) /* + " " + String(processedByteCountDuringCameraRead)*/);
-    // commandDebugPrint("Frame " + String(frameCounter, 16)); // send number in hexadecimal
+    // commandDebugPrint("Frame " + String(frameCounter));
 }
 
 // camera
@@ -76,7 +75,7 @@ void processFrame()
 void processGrayscaleFrameBuffered()
 {
     camera.waitForVsync();
-    commandDebugPrint("Vsync");
+    // commandDebugPrint("Vsync");
 
     camera.ignoreVerticalPadding();
 
@@ -85,36 +84,53 @@ void processGrayscaleFrameBuffered()
         lineBufferSendByte = &lineBuffer[0];
         camera.ignoreHorizontalPaddingLeft();
 
-        for (uint16_t x = 0; x < lineBufferLength; x += 2)
+        uint16_t x = 0;
+        for (; x < lineBufferLength; x += 2)
         {
             camera.waitForPixelClockRisingEdge(); // YUV422 grayscale byte
             camera.readPixelByte(lineBuffer[x]);
-            lineBuffer[x] = formatPixelByteGrayscaleFirst(lineBuffer[x]);
-
             camera.waitForPixelClockRisingEdge(); // YUV422 color byte. Ignore.
 
             camera.waitForPixelClockRisingEdge(); // YUV422 grayscale byte
             camera.readPixelByte(lineBuffer[x + 1]);
-            lineBuffer[x + 1] = formatPixelByteGrayscaleSecond(lineBuffer[x + 1]);
-
             camera.waitForPixelClockRisingEdge(); // YUV422 color byte. Ignore.
 
-            // TODO why doesn't separating the interl;eaved reading and uploading work
+            const uint8_t avg = (uint16_t(lineBuffer[x]) + uint16_t(lineBuffer[x + 1])) / 2;
+
+            lineBuffer[x]     = avg;
+            lineBuffer[x + 1] = avg;
+
+            lineBuffer[x]     = formatPixelByteGrayscaleFirst(lineBuffer[x]);
+            lineBuffer[x + 1] = formatPixelByteGrayscaleSecond(lineBuffer[x + 1]);
+
+
+            // TODO why doesn't separating the interleaved reading and uploading work
             // }
             // for (uint16_t x = 0; x < lineBufferLength; x += 2)
             // {
+
+            // reads 160 times, but only uploads if uart is ready (~35 times in my testing)
+            // so upload remaining bytes later
+            // BUT removing this doesn't work? why doesn't later loop handle it
+            // but removing just 1 call instead of both works
             processNextGrayscalePixelByteInBuffer();
-            processNextGrayscalePixelByteInBuffer();
+            // processNextGrayscalePixelByteInBuffer();
         }
 
         camera.ignoreHorizontalPaddingRight();
 
         // Debug info to get some feedback how mutch data was processed during line read.
         processedByteCountDuringCameraRead = lineBufferSendByte - (&lineBuffer[0]);
-        // if(y % 20 == 0) commandDebugPrint(String(processedByteCountDuringCameraRead));
+        if (y % 20 == 0)
+        {
+            // commandDebugPrint(String(processedByteCountDuringCameraRead));
+            // commandDebugPrint(String(x) + " " + String(lineBufferSendByte - lineBuffer));
+        }
 
         int i = 0;
         // Send rest of the line
+        // since uart may not be ready, this may run many times more than 160,
+        // eg 12662 in my testing (why is it stable at this value)
         while (lineBufferSendByte < &lineBuffer[lineLength])
         {
             processNextGrayscalePixelByteInBuffer();
@@ -137,6 +153,8 @@ void processNextGrayscalePixelByteInBuffer()
 // eg first byte check:
 // https://github.com/indrekluuk/ArduImageCapture/blob/f574505f1c3f92fc2df47e12a4a5ef7b0614a684/src/main/java/com/circuitjournal/capture/ImageCapture.java#L228
 // second byte??
+// each grayscale Y value is 1 byte
+// byte last bits go 0 1 0 1: leftover from YUV but unnecessary for grayscale
 uint8_t formatPixelByteGrayscaleFirst(uint8_t pixelByte)
 {
     // For the First byte in the parity chek byte pair the last bit is always 0.
