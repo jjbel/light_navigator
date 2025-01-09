@@ -83,6 +83,8 @@ void processGrayscaleFrameBuffered()
     for (uint16_t y = 0; y < lineCount; y++)
     {
         lineBufferSendByte = &lineBuffer[0];
+
+        // removing this gives a very gray image
         camera.ignoreHorizontalPaddingLeft();
 
         uint64_t sum   = 0;
@@ -130,21 +132,28 @@ void processGrayscaleFrameBuffered()
             // processNextGrayscalePixelByteInBuffer();
         }
 
-        camera.ignoreHorizontalPaddingRight();
+        // removing this doesn't seem to break anything
+        // camera.ignoreHorizontalPaddingRight();
 
         // Debug info to get some feedback how mutch data was processed during line read.
         processedByteCountDuringCameraRead = lineBufferSendByte - (&lineBuffer[0]);
-        if (y % 20 == 0)
-        {
-            // commandDebugPrint(String(x) + " " + String(lineBufferSendByte - lineBuffer));
-        }
+        // if (y % 20 == 0)
+        // {
+        // commandDebugPrint(String(x) + " " + String(lineBufferSendByte - lineBuffer));
+        // }
 
+        int i = 0;
         // Send rest of the line
         // since uart may not be ready, this may run many times more than 160,
         // eg 12662 in my testing (why is it stable at this value)
         while (lineBufferSendByte < &lineBuffer[lineLength])
         {
             processNextGrayscalePixelByteInBuffer();
+            i++;
+        }
+        if (y % 20 == 0)
+        {
+            commandDebugPrint(String(i) + " " + String(processedByteCountDuringCameraRead));
         }
     }
 }
