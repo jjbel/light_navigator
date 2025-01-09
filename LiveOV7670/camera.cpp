@@ -153,7 +153,20 @@ void processGrayscaleFrameBuffered()
         }
         if (y % 20 == 0)
         {
-            commandDebugPrint(String(i) + " " + String(processedByteCountDuringCameraRead));
+            // if u print pixels which = 255, then because of auto exposure, sometimes none
+
+            uint8_t max = lineBuffer[0];
+            for (uint16_t x = 1; x < lineBufferLength; x++)
+            {
+                if (lineBuffer[x] > max) { max = lineBuffer[x]; }
+            }
+
+            String out = String(max) + ": ";
+            for (uint16_t x = 0; x < lineBufferLength; x++)
+            {
+                if (lineBuffer[x] == max) { out += String(x) + " "; }
+            }
+            commandDebugPrint(out);
         }
     }
 }
