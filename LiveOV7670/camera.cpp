@@ -79,13 +79,16 @@ void processGrayscaleFrameBuffered()
 
     camera.ignoreVerticalPadding();
 
+
     for (uint16_t y = 0; y < lineCount; y++)
     {
         lineBufferSendByte = &lineBuffer[0];
         camera.ignoreHorizontalPaddingLeft();
 
-        uint16_t x = 0;
-        for (; x < lineBufferLength; x += 2)
+        uint64_t sum   = 0;
+        uint64_t count = 0;
+
+        for (uint16_t x = 0; x < lineBufferLength; x += 2)
         {
             camera.waitForPixelClockRisingEdge(); // YUV422 grayscale byte
             camera.readPixelByte(lineBuffer[x]);
@@ -95,7 +98,17 @@ void processGrayscaleFrameBuffered()
             camera.readPixelByte(lineBuffer[x + 1]);
             camera.waitForPixelClockRisingEdge(); // YUV422 color byte. Ignore.
 
+            // this takes an average over 8 pixels
+            if (x % 8 == 0)
+            {
+                sum   = 0;
+                count = 0;
+            }
+            sum += lineBuffer[x] + lineBuffer[x + 1];
+            count += 2;
+
             const uint8_t avg = (uint16_t(lineBuffer[x]) + uint16_t(lineBuffer[x + 1])) / 2;
+            // const uint8_t avg = sum / /* (x + 1) */ count;
 
             lineBuffer[x]     = avg;
             lineBuffer[x + 1] = avg;
@@ -123,20 +136,16 @@ void processGrayscaleFrameBuffered()
         processedByteCountDuringCameraRead = lineBufferSendByte - (&lineBuffer[0]);
         if (y % 20 == 0)
         {
-            // commandDebugPrint(String(processedByteCountDuringCameraRead));
             // commandDebugPrint(String(x) + " " + String(lineBufferSendByte - lineBuffer));
         }
 
-        int i = 0;
         // Send rest of the line
         // since uart may not be ready, this may run many times more than 160,
         // eg 12662 in my testing (why is it stable at this value)
         while (lineBufferSendByte < &lineBuffer[lineLength])
         {
             processNextGrayscalePixelByteInBuffer();
-            i++;
         }
-        // if(y % 20 == 0) commandDebugPrint(String(i));
     }
 }
 
