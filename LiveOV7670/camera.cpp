@@ -10,13 +10,11 @@ const uint8_t COMMAND_DEBUG_DATA = 0x03 | VERSION;
 const uint16_t UART_PIXEL_FORMAT_GRAYSCALE = 0x02;
 
 void processGrayscaleFrameBuffered();
-void processGrayscaleFrameDirect();
 
 const uint16_t lineLength       = 160;
 const uint16_t lineCount        = 120;
-const uint32_t baud             = 115200;
+const uint32_t baud             = 115200; // TODO could increase?? see his code how faster
 const uint16_t lineBufferLength = lineLength;
-const bool isSendWhileBuffering = true;
 const uint8_t uartPixelFormat   = UART_PIXEL_FORMAT_GRAYSCALE;
 CameraOV7670 camera(CameraOV7670::RESOLUTION_QQVGA_160x120, CameraOV7670::PIXEL_YUV422, 17);
 // pixel is 2 bytes but buffer is only 160 wide?
@@ -94,25 +92,35 @@ void processGrayscaleFrameBuffered()
             lineBuffer[x] = formatPixelByteGrayscaleFirst(lineBuffer[x]);
 
             camera.waitForPixelClockRisingEdge(); // YUV422 color byte. Ignore.
-            if (isSendWhileBuffering) { processNextGrayscalePixelByteInBuffer(); }
 
             camera.waitForPixelClockRisingEdge(); // YUV422 grayscale byte
             camera.readPixelByte(lineBuffer[x + 1]);
             lineBuffer[x + 1] = formatPixelByteGrayscaleSecond(lineBuffer[x + 1]);
 
             camera.waitForPixelClockRisingEdge(); // YUV422 color byte. Ignore.
-            if (isSendWhileBuffering) { processNextGrayscalePixelByteInBuffer(); }
+
+            // TODO why doesn't separating the interl;eaved reading and uploading work
+            // }
+            // for (uint16_t x = 0; x < lineBufferLength; x += 2)
+            // {
+            processNextGrayscalePixelByteInBuffer();
+            processNextGrayscalePixelByteInBuffer();
         }
+
         camera.ignoreHorizontalPaddingRight();
 
         // Debug info to get some feedback how mutch data was processed during line read.
         processedByteCountDuringCameraRead = lineBufferSendByte - (&lineBuffer[0]);
+        // if(y % 20 == 0) commandDebugPrint(String(processedByteCountDuringCameraRead));
 
+        int i = 0;
         // Send rest of the line
         while (lineBufferSendByte < &lineBuffer[lineLength])
         {
             processNextGrayscalePixelByteInBuffer();
+            i++;
         }
+        // if(y % 20 == 0) commandDebugPrint(String(i));
     }
 }
 
@@ -125,7 +133,10 @@ void processNextGrayscalePixelByteInBuffer()
     }
 }
 
-
+// circuitjournal checks parity of the bytes
+// eg first byte check:
+// https://github.com/indrekluuk/ArduImageCapture/blob/f574505f1c3f92fc2df47e12a4a5ef7b0614a684/src/main/java/com/circuitjournal/capture/ImageCapture.java#L228
+// second byte??
 uint8_t formatPixelByteGrayscaleFirst(uint8_t pixelByte)
 {
     // For the First byte in the parity chek byte pair the last bit is always 0.
