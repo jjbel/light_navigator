@@ -95,9 +95,6 @@ void processGrayscaleFrameBuffered()
         // removing this gives a very gray image
         camera.ignoreHorizontalPaddingLeft();
 
-        uint64_t sum   = 0;
-        uint64_t count = 0;
-
         for (uint16_t x = 0; x < lineBufferLength; x += 2)
         {
             camera.waitForPixelClockRisingEdge(); // YUV422 grayscale byte
@@ -108,11 +105,11 @@ void processGrayscaleFrameBuffered()
             camera.readPixelByte(lineBuffer[x + 1]);
             camera.waitForPixelClockRisingEdge(); // YUV422 color byte. Ignore.
 
-            const uint8_t avg = (uint16_t(lineBuffer[x]) + uint16_t(lineBuffer[x + 1])) / 2;
+            // const uint8_t avg = (uint16_t(lineBuffer[x]) + uint16_t(lineBuffer[x + 1])) / 2;
             // const uint8_t avg = sum / /* (x + 1) */ count;
 
-            lineBuffer[x]     = avg;
-            lineBuffer[x + 1] = avg;
+            // lineBuffer[x]     = avg;
+            // lineBuffer[x + 1] = avg;
 
             lineBuffer[x]     = formatPixelByteGrayscaleFirst(lineBuffer[x]);
             lineBuffer[x + 1] = formatPixelByteGrayscaleSecond(lineBuffer[x + 1]);
@@ -149,10 +146,10 @@ void processGrayscaleFrameBuffered()
 
         // if (y % 20 == 0)
         // {
-            for (uint16_t x = 0; x < lineBufferLength; x++) { avgBuffer[counter] += lineBuffer[x]; }
-            counter++;
+        for (uint16_t x = 0; x < lineBufferLength; x++) { avgBuffer[counter] += lineBuffer[x]; }
+        counter++;
         // }
-        
+
         // if ((y + 1) % 20 == 0)
         // {
         //     commandDebugPrint("                                             ");
@@ -169,12 +166,38 @@ void preProcess()
 void postProcess()
 {
     String out = "";
+
+    uint32_t max = avgBuffer[0];
+    for (uint16_t x = 1; x < lineCount; x++)
+    {
+        if (avgBuffer[x] > max) max = avgBuffer[x];
+    }
+
+    // filter out dark pixels:
+    for (uint16_t x = 0; x < lineCount; x++)
+    {
+        const float threshold = 0.9;
+        if (avgBuffer[x] < max * threshold) avgBuffer[x] = 0;
+    }
+
+    // weighted avg:
+    float numerator   = 0;
+    float denominator = 0;
+    for (uint16_t x = 0; x < lineCount; x++)
+    {
+        numerator += avgBuffer[x] * x;
+        denominator += avgBuffer[x];
+    }
+    const float avg         = numerator / denominator;
+    const float turn_amount = avg / lineCount * 2 - 1; // give to motor  !!!!!!!!!!!!!!!!!!
+
     for (uint16_t x = 0; x < lineCount; x += 2)
     {
-        out += String(int(float(avgBuffer[x]) / lineBufferLength) * 10 / 255)/*  + " " */;
+        out += String(int(float(avgBuffer[x]) / lineBufferLength) * 10 / 255) /*  + " " */;
     }
     // commandDebugPrint(String(counter));
     commandDebugPrint(out);
+    commandDebugPrint(String(turn_amount));
 }
 
 void processNextGrayscalePixelByteInBuffer()
