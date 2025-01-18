@@ -81,6 +81,7 @@ void processGrayscaleFrameBuffered()
 
     camera.ignoreVerticalPadding();
     counter = 0;
+    for (uint16_t x = 0; x < lineCount; x++) { avgBuffer[x] = 0; }
 
     for (uint16_t y = 0; y < lineCount; y++)
     {
@@ -102,15 +103,6 @@ void processGrayscaleFrameBuffered()
             camera.readPixelByte(lineBuffer[x + 1]);
             camera.waitForPixelClockRisingEdge(); // YUV422 color byte. Ignore.
 
-            // this takes an average over 8 pixels
-            if (x % 8 == 0)
-            {
-                sum   = 0;
-                count = 0;
-            }
-            sum += lineBuffer[x] + lineBuffer[x + 1];
-            count += 2;
-
             const uint8_t avg = (uint16_t(lineBuffer[x]) + uint16_t(lineBuffer[x + 1])) / 2;
             // const uint8_t avg = sum / /* (x + 1) */ count;
 
@@ -125,7 +117,6 @@ void processGrayscaleFrameBuffered()
             // }
             // for (uint16_t x = 0; x < lineBufferLength; x += 2)
             // {
-
             // reads 160 times, but only uploads if uart is ready (~35 times in my testing)
             // so upload remaining bytes later
             // BUT removing this doesn't work? why doesn't later loop handle it
@@ -143,38 +134,17 @@ void processGrayscaleFrameBuffered()
         // commandDebugPrint(String(x) + " " + String(lineBufferSendByte - lineBuffer));
         // }
 
-        int i = 0;
         // Send rest of the line
         // since uart may not be ready, this may run many times more than 160,
         // eg 12662 in my testing (why is it stable at this value)
         while (lineBufferSendByte < &lineBuffer[lineLength])
         {
             processNextGrayscalePixelByteInBuffer();
-            i++;
         }
-        // if (y % 20 == 0)
-        // {
-        //     // if u print pixels which = 255, then because of auto exposure, sometimes none
-        //     uint8_t max = lineBuffer[0];
-        //     for (uint16_t x = 1; x < lineBufferLength; x++)
-        //     {
-        //         if (lineBuffer[x] > max) { max = lineBuffer[x]; }
-        //     }
-        //     String out = String(max) + ": ";
-        //     for (uint16_t x = 0; x < lineBufferLength; x++)
-        //     {
-        //         if (lineBuffer[x] == max) { out += String(x) + " "; }
-        //     }
-        //     commandDebugPrint(out);
-        // }
 
         if (y % 20 == 0)
         {
-            for (uint16_t x = 0; x < lineBufferLength; x++)
-            {
-                //  avgBuffer[counter] += lineBuffer[x];
-                avgBuffer[counter] += 1;
-            }
+            for (uint16_t x = 0; x < lineBufferLength; x++) { avgBuffer[counter] += lineBuffer[x]; }
             counter++;
         }
     }
