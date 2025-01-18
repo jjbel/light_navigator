@@ -19,6 +19,8 @@ const uint8_t uartPixelFormat   = UART_PIXEL_FORMAT_GRAYSCALE;
 CameraOV7670 camera(CameraOV7670::RESOLUTION_QQVGA_160x120, CameraOV7670::PIXEL_YUV422, 17);
 
 uint8_t lineBuffer[lineBufferLength];
+uint32_t avgBuffer[lineCount];
+uint16_t counter = 0;
 
 // TODO why doesn't changing this to an offset instead of a pointer work
 uint8_t* lineBufferSendByte;
@@ -78,7 +80,7 @@ void processGrayscaleFrameBuffered()
     // commandDebugPrint("Vsync");
 
     camera.ignoreVerticalPadding();
-
+    counter = 0;
 
     for (uint16_t y = 0; y < lineCount; y++)
     {
@@ -136,7 +138,6 @@ void processGrayscaleFrameBuffered()
         // camera.ignoreHorizontalPaddingRight();
 
         // Debug info to get some feedback how mutch data was processed during line read.
-        processedByteCountDuringCameraRead = lineBufferSendByte - (&lineBuffer[0]);
         // if (y % 20 == 0)
         // {
         // commandDebugPrint(String(x) + " " + String(lineBufferSendByte - lineBuffer));
@@ -151,24 +152,39 @@ void processGrayscaleFrameBuffered()
             processNextGrayscalePixelByteInBuffer();
             i++;
         }
+        // if (y % 20 == 0)
+        // {
+        //     // if u print pixels which = 255, then because of auto exposure, sometimes none
+        //     uint8_t max = lineBuffer[0];
+        //     for (uint16_t x = 1; x < lineBufferLength; x++)
+        //     {
+        //         if (lineBuffer[x] > max) { max = lineBuffer[x]; }
+        //     }
+        //     String out = String(max) + ": ";
+        //     for (uint16_t x = 0; x < lineBufferLength; x++)
+        //     {
+        //         if (lineBuffer[x] == max) { out += String(x) + " "; }
+        //     }
+        //     commandDebugPrint(out);
+        // }
+
         if (y % 20 == 0)
         {
-            // if u print pixels which = 255, then because of auto exposure, sometimes none
-
-            uint8_t max = lineBuffer[0];
-            for (uint16_t x = 1; x < lineBufferLength; x++)
-            {
-                if (lineBuffer[x] > max) { max = lineBuffer[x]; }
-            }
-
-            String out = String(max) + ": ";
             for (uint16_t x = 0; x < lineBufferLength; x++)
             {
-                if (lineBuffer[x] == max) { out += String(x) + " "; }
+                //  avgBuffer[counter] += lineBuffer[x];
+                avgBuffer[counter] += 1;
             }
-            commandDebugPrint(out);
+            counter++;
         }
     }
+
+    String out = "";
+    for (uint16_t x = 0; x < counter; x++)
+    {
+        out += String(int(float(avgBuffer[x]) / lineBufferLength)) + " ";
+    }
+    commandDebugPrint(out);
 }
 
 void processNextGrayscalePixelByteInBuffer()

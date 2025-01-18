@@ -18,3 +18,8 @@ could set a threshold, pixels above it should be counted.
 auto exposure: could be helpful to control it manually?
 
 possible optimization: reduce no of memory accesses to buffer
+
+
+OI!!
+just print the avg value at the end of the line
+forget trying to set the image to it
