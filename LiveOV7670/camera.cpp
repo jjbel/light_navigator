@@ -43,6 +43,8 @@ inline uint8_t formatPixelByteGrayscaleSecond(uint8_t byte);
 inline void waitForPreviousUartByteToBeSent();
 inline bool isUartReady();
 
+void preProcess();
+void postProcess();
 
 // this is called in Arduino setup() function
 void initializeScreenAndCamera()
@@ -63,7 +65,11 @@ void processFrame()
     processedByteCountDuringCameraRead = 0;
     commandStartNewFrame(uartPixelFormat);
     noInterrupts();
+
+    preProcess();
     processGrayscaleFrameBuffered();
+    postProcess();
+
     interrupts();
     frameCounter++;
     // commandDebugPrint("Frame " + String(frameCounter));
@@ -74,14 +80,13 @@ void processFrame()
 // lineBufferSenByte, lineBuffer, lineBufferLength,
 // isSendWhileBuffering, lineLength, processNextGrayscalePixelByteInBuffer
 
+
 void processGrayscaleFrameBuffered()
 {
     camera.waitForVsync();
     // commandDebugPrint("Vsync");
 
     camera.ignoreVerticalPadding();
-    counter = 0;
-    for (uint16_t x = 0; x < lineCount; x++) { avgBuffer[x] = 0; }
 
     for (uint16_t y = 0; y < lineCount; y++)
     {
@@ -142,18 +147,33 @@ void processGrayscaleFrameBuffered()
             processNextGrayscalePixelByteInBuffer();
         }
 
-        if (y % 20 == 0)
-        {
+        // if (y % 20 == 0)
+        // {
             for (uint16_t x = 0; x < lineBufferLength; x++) { avgBuffer[counter] += lineBuffer[x]; }
             counter++;
-        }
+        // }
+        
+        // if ((y + 1) % 20 == 0)
+        // {
+        //     commandDebugPrint("                                             ");
+        // }
     }
+}
 
+void preProcess()
+{
+    counter = 0;
+    for (uint16_t x = 0; x < lineCount; x++) { avgBuffer[x] = 0; }
+}
+
+void postProcess()
+{
     String out = "";
-    for (uint16_t x = 0; x < counter; x++)
+    for (uint16_t x = 0; x < lineCount; x += 2)
     {
-        out += String(int(float(avgBuffer[x]) / lineBufferLength)) + " ";
+        out += String(int(float(avgBuffer[x]) / lineBufferLength) * 10 / 255)/*  + " " */;
     }
+    // commandDebugPrint(String(counter));
     commandDebugPrint(out);
 }
 
