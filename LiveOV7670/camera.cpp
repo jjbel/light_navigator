@@ -68,9 +68,9 @@ void processFrame()
 
     preProcess();
     processGrayscaleFrameBuffered();
+    interrupts();
     postProcess();
 
-    interrupts();
     frameCounter++;
     // commandDebugPrint("Frame " + String(frameCounter));
 }
@@ -172,6 +172,7 @@ void postProcess()
     {
         if (avgBuffer[x] > max) max = avgBuffer[x];
     }
+    // max = 200;
 
     // filter out dark pixels:
     for (uint16_t x = 0; x < lineCount; x++)
@@ -196,8 +197,39 @@ void postProcess()
         out += String(int(float(avgBuffer[x]) / lineBufferLength) * 10 / 255) /*  + " " */;
     }
     // commandDebugPrint(String(counter));
-    commandDebugPrint(out);
-    commandDebugPrint(String(turn_amount));
+    // commandDebugPrint(out);
+
+    uint8_t max_speed = 255;
+
+    uint8_t speed_right = max(turn_amount, 0) * max_speed;
+    uint8_t speed_left  = max(-turn_amount, 0) * max_speed;
+
+    commandDebugPrint("frame: " + String(frameCounter));
+    commandDebugPrint(String(turn_amount) + " " + String(speed_left) + " " + String(speed_right));
+
+    // commandDebugPrint("2");
+
+    // analogWrite to 11 caused image to be garbage after a few frames. maybe coz of timing
+    // issues/also used for i2c
+    analogWrite(9, speed_right);
+    analogWrite(10, speed_left);
+    delay(150);
+    analogWrite(10, 0);
+    analogWrite(9, 0);
+
+    delay(150);
+
+    analogWrite(9, max_speed);
+    analogWrite(10, max_speed);
+    delay(250);
+    analogWrite(10, 0);
+    analogWrite(9, 0);
+
+    // analogWrite(9, max_speed);
+    // analogWrite(10, max_speed);
+    // delay(150);
+    // commandDebugPrint("3");
+    // return turn_amount;
 }
 
 void processNextGrayscalePixelByteInBuffer()

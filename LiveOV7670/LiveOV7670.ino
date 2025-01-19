@@ -8,6 +8,14 @@ void setup()
     CLKPR = 0;    // set prescaler to 0. WAVGAT MCU has it 3 by default.
 
     initializeScreenAndCamera();
+    pinMode(10, OUTPUT);
+    pinMode(9, OUTPUT);
+    // Serial.begin(115200);
 }
 
-void loop() { processFrame(); }
+void loop()
+{
+    processFrame();
+    // Serial.println(String(millis()));
+    // delay(300);
+}
